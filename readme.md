@@ -32,7 +32,7 @@ docker stop tapo-controller
 docker rm tapo-controller
 
 # Pull latest version
-git pull
+git pull --rebase
 
 # Build docker image
 docker build -t tomasklement/tapo-controller .

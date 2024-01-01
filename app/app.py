@@ -5,16 +5,17 @@ import isodate
 import logging
 from pythonping import ping
 import yaml
+import os
 from PyP100 import PyP100
 
 CONFIG_PATH = '/etc/tapo-controller/config.yaml'
+LOG_PATH = '/var/log/tapo-controller/app.log'
 
 class TapoController:
   def __init__(self):
-    config = self._load_config()
-    self._logger = self._create_logger(config['log'])
-    self._plug = self._connect_plug(config['plug'])
-    self._config = config
+    self._config = self._load_config()
+    self._logger = self._create_logger(self._config.get('log_level'))
+    self._plug = self._connect_plug(self._config['plug'])
 
   def _load_config(self) -> dict:
     """
@@ -29,32 +30,46 @@ class TapoController:
     except:
       raise IOError(f'Cannot open configuration file "{CONFIG_PATH}"')
 
-  def _create_logger(self, config: dict) -> logging.Logger:
+  def _create_logger(self, log_level_str: str=None) -> logging.Logger:
     """
     Creates logger instance
 
     Parameters:
-    - config (dict): Log configuration
+    - log_level_str (str): Log level
 
     Returns:
     logging.Logger: Logger instance
     """
-    log_level_str = config['level']
-    # Convert the log level string to a numeric value
-    log_level = getattr(logging, log_level_str.upper(), None)
+    format = '%(asctime)s - %(levelname)s - %(message)s'
+    datefmt = '%Y-%m-%d %H:%M:%S'
 
-    if not isinstance(log_level, int):
-        raise ValueError(f'Invalid log level: "{log_level_str}"')
-
-    # Configure the logging module
+    # Configure the root logger for stdout
     logging.basicConfig(
-        filename = config.get('file', None),
-        level = log_level,
-        format = '%(asctime)s - %(levelname)s - %(message)s',
-        datefmt = '%Y-%m-%d %H:%M:%S'
+      level = logging.NOTSET, # Will pass all log messages
+      format = format,
+      datefmt = datefmt,
     )
 
-    return logging.getLogger(__name__)
+    logger = logging.getLogger()
+
+    if (log_level_str is not None):
+      # Make directory for log file if it doesn't exist
+      os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
+
+      # Convert the log level string to a numeric value
+      log_level = getattr(logging, log_level_str.upper(), logging.NOTSET)
+
+      if not isinstance(log_level, int):
+        raise ValueError(f'Invalid log level: "{log_level_str}"')
+
+      formatter    = logging.Formatter(format, datefmt)
+      file_handler = logging.FileHandler(LOG_PATH)
+      file_handler.setLevel(log_level)
+      file_handler.setFormatter(formatter)
+
+      logger.addHandler(file_handler)
+
+    return logger
 
   def _is_online(self, ip: str) -> bool:
     """
@@ -68,7 +83,8 @@ class TapoController:
     """
     pingResult = ping(ip, count=1, timeout=1)
     result = all(resultLine.success for resultLine in pingResult)
-    self._logger.debug(f'Device with ip "{ip}"' + {True: "is", False: "is not"}[result] + ' online')
+    result = True
+    self._logger.debug(f'Device with ip "{ip}" ' + {True: "is", False: "is not"}[result] + ' online')
 
     return result
 
@@ -88,11 +104,15 @@ class TapoController:
     Returns:
     PyP100.P100: Plug instance
     """
+    ip = config['ip']
+    self._logger.info(f'Connecting to the plug with ip: "{ip}"')
     # All types of 1.. plugs have the same API for turning on and off
-    plug = PyP100.P100(config['ip'], config['username'], config['password']) #Creates a P100 plug object
+    plug = PyP100.P100(ip, config['username'], config['password']) #Creates a P100 plug object
 
-    plug.handshake() #Creates the cookies required for further methods
-    plug.login() #Sends credentials to the plug and creates AES Key and IV for further methods
+    plug.handshake() # Creates the cookies required for further methods
+    plug.login() # Sends credentials to the plug and creates AES Key and IV for further methods
+
+    self._logger.info(f'Connected to the plug')
 
     return plug
 

@@ -15,7 +15,5 @@ refresh_interval: "PT3S" # ISO 8601 duration format, i.e.: PT1H2M3S = 1 hour, 2 
 # Controller waits this time before actual shutting down. When the devices are offline in whole interval it performs shutdown
 offline_delay_interval: "PT1H" # ISO 8601 duration format, i.e.: PT1H2M3S = 1 hour, 2 minutes, 3 seconds
 
-# Log configuration
-log:
-  level: "INFO" # Log level
-  file: "/var/log/tapo-controller/app.log" # Log file (optional)
+# Log level, see https://docs.python.org/3/library/logging.html#levels for possible values
+log_level: "INFO"
