@@ -83,7 +83,6 @@ class TapoController:
     """
     pingResult = ping(ip, count=1, timeout=1)
     result = all(resultLine.success for resultLine in pingResult)
-    result = True
     self._logger.debug(f'Device with ip "{ip}" ' + {True: "is", False: "is not"}[result] + ' online')
 
     return result
